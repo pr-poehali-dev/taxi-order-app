@@ -34,6 +34,8 @@ const Index = () => {
   const [pickupSuggestions, setPickupSuggestions] = useState<string[]>([]);
   const [destinationSuggestions, setDestinationSuggestions] = useState<string[]>([]);
   const [selectedCarType, setSelectedCarType] = useState('economy');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const YANDEX_API_KEY = '7d998dde-4bf4-4d81-af59-deb970d41bad';
 
@@ -181,6 +183,87 @@ const Index = () => {
     }
   }, [selectedCarType, routeInfo?.distance]);
 
+  // Функция отправки заказа
+  const submitOrder = async () => {
+    if (!routeInfo) {
+      alert('Сначала рассчитайте маршрут');
+      return;
+    }
+
+    if (!customerPhone.trim()) {
+      alert('Пожалуйста, введите номер телефона');
+      return;
+    }
+
+    // Валидация телефона (простая)
+    const phoneRegex = /^[+]?[0-9\s\-\(\)]{10,15}$/;
+    if (!phoneRegex.test(customerPhone.trim())) {
+      alert('Пожалуйста, введите корректный номер телефона');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      // Формируем данные для отправки
+      const orderData = {
+        pickup: pickupAddress,
+        destination: destinationAddress,
+        distance: routeInfo.distance,
+        duration: routeInfo.duration,
+        cost: routeInfo.cost,
+        carType: selectedCar.name,
+        pricePerKm: selectedCar.pricePerKm,
+        phone: customerPhone.trim(),
+        timestamp: new Date().toLocaleString('ru-RU')
+      };
+
+      // В реальном приложении здесь был бы API вызов для отправки email
+      // Для демонстрации используем mailto (откроет почтовый клиент)
+      const emailSubject = 'Новый заказ такси';
+      const emailBody = `
+        ЗАКАЗ ТАКСИ
+        
+        Дата и время: ${orderData.timestamp}
+        
+        МАРШРУТ:
+        Откуда: ${orderData.pickup}
+        Куда: ${orderData.destination}
+        
+        ДЕТАЛИ ПОЕЗДКИ:
+        Расстояние: ${orderData.distance} км
+        Время в пути: ${orderData.duration} мин
+        Тип автомобиля: ${orderData.carType}
+        Тариф: ${orderData.pricePerKm} ₽/км
+        
+        СТОИМОСТЬ: ${orderData.cost} ₽
+        
+        КОНТАКТЫ КЛИЕНТА:
+        Телефон: ${orderData.phone}
+      `.replace(/\n\s+/g, '\n');
+
+      const mailtoLink = `mailto:taxi@example.com?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
+      
+      // Открываем почтовый клиент
+      window.location.href = mailtoLink;
+      
+      // Показываем успешное сообщение
+      alert('Заказ сформирован! Открывается почтовый клиент для отправки.');
+      
+      // Очищаем форму
+      setCustomerPhone('');
+      setPickupAddress('');
+      setDestinationAddress('');
+      setRouteInfo(null);
+      
+    } catch (error) {
+      console.error('Ошибка при отправке заказа:', error);
+      alert('Ошибка при отправке заказа. Попробуйте еще раз.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 font-roboto">
       <div className="container mx-auto px-4 py-8 max-w-6xl">
@@ -280,23 +363,61 @@ const Index = () => {
                       )}
                     </div>
 
-                    <Button
-                      onClick={calculateRoute}
-                      disabled={isCalculating}
-                      className="w-full h-12 bg-taxi hover:bg-yellow-500 text-black font-semibold text-lg"
-                    >
-                      {isCalculating ? (
-                        <div className="flex items-center gap-2">
-                          <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
-                          Расчет маршрута...
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          <Icon name="Calculator" size={20} />
-                          Рассчитать маршрут
-                        </div>
+                    <div className="relative">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Номер телефона заказчика
+                      </label>
+                      <div className="relative">
+                        <Icon name="Phone" size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-blue-500" />
+                        <Input
+                          placeholder="+7 (999) 123-45-67"
+                          value={customerPhone}
+                          onChange={(e) => setCustomerPhone(e.target.value)}
+                          className="pl-10 h-12 border-2 focus:border-taxi"
+                          type="tel"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <Button
+                        onClick={calculateRoute}
+                        disabled={isCalculating}
+                        className="w-full h-12 bg-taxi hover:bg-yellow-500 text-black font-semibold text-lg"
+                      >
+                        {isCalculating ? (
+                          <div className="flex items-center gap-2">
+                            <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
+                            Расчет маршрута...
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <Icon name="Calculator" size={20} />
+                            Рассчитать маршрут
+                          </div>
+                        )}
+                      </Button>
+
+                      {routeInfo && (
+                        <Button
+                          onClick={submitOrder}
+                          disabled={isSubmitting || !customerPhone.trim()}
+                          className="w-full h-12 bg-green-600 hover:bg-green-700 text-white font-semibold text-lg"
+                        >
+                          {isSubmitting ? (
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                              Отправка заказа...
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <Icon name="Send" size={20} />
+                              Оформить заказ ({routeInfo.cost} ₽)
+                            </div>
+                          )}
+                        </Button>
                       )}
-                    </Button>
+                    </div>
                   </CardContent>
                 </Card>
 

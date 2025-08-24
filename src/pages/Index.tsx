@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import Icon from '@/components/ui/icon';
-import TaxiMap from '@/components/TaxiMap';
+import YandexMap from '@/components/YandexMap';
 
 interface RouteInfo {
   distance: number;
@@ -14,7 +14,6 @@ interface RouteInfo {
   cost: number;
   pickupCoords?: [number, number];
   destinationCoords?: [number, number];
-  routeCoords?: [number, number][];
 }
 
 interface CarType {
@@ -36,7 +35,7 @@ const Index = () => {
   const [destinationSuggestions, setDestinationSuggestions] = useState<string[]>([]);
   const [selectedCarType, setSelectedCarType] = useState('economy');
 
-  const API_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImZkM2Y1ZmZjNjUzZjQ3MzI4N2M4NWI0YTE3OTQwY2EzIiwiaCI6Im11cm11cjY0In0=';
+  const YANDEX_API_KEY = '7d998dde-4bf4-4d81-af59-deb970d41bad';
 
   const carTypes: CarType[] = [
     {
@@ -87,11 +86,13 @@ const Index = () => {
 
     try {
       const response = await fetch(
-        `https://api.openrouteservice.org/geocode/search?api_key=${API_KEY}&text=${encodeURIComponent(query)}&boundary.country=RU&size=5`
+        `https://geocode-maps.yandex.ru/1.x/?apikey=${YANDEX_API_KEY}&format=json&geocode=${encodeURIComponent(query)}&results=5`
       );
       const data = await response.json();
       
-      const suggestions = data.features?.map((feature: any) => feature.properties.label) || [];
+      const suggestions = data.response?.GeoObjectCollection?.featureMember?.map(
+        (item: any) => item.GeoObject.metaDataProperty.GeocoderMetaData.text
+      ) || [];
       setter(suggestions);
     } catch (error) {
       console.error('Ошибка при получении подсказок:', error);
@@ -108,57 +109,48 @@ const Index = () => {
     setIsCalculating(true);
 
     try {
-      // Получаем координаты для адресов
+      // Получаем координаты для адресов через Яндекс Геокодер
       const [pickupResponse, destinationResponse] = await Promise.all([
-        fetch(`https://api.openrouteservice.org/geocode/search?api_key=${API_KEY}&text=${encodeURIComponent(pickupAddress)}&boundary.country=RU&size=1`),
-        fetch(`https://api.openrouteservice.org/geocode/search?api_key=${API_KEY}&text=${encodeURIComponent(destinationAddress)}&boundary.country=RU&size=1`)
+        fetch(`https://geocode-maps.yandex.ru/1.x/?apikey=${YANDEX_API_KEY}&format=json&geocode=${encodeURIComponent(pickupAddress)}&results=1`),
+        fetch(`https://geocode-maps.yandex.ru/1.x/?apikey=${YANDEX_API_KEY}&format=json&geocode=${encodeURIComponent(destinationAddress)}&results=1`)
       ]);
 
       const pickupData = await pickupResponse.json();
       const destinationData = await destinationResponse.json();
 
-      if (pickupData.features?.length === 0 || destinationData.features?.length === 0) {
+      const pickupFeatures = pickupData.response?.GeoObjectCollection?.featureMember;
+      const destinationFeatures = destinationData.response?.GeoObjectCollection?.featureMember;
+
+      if (!pickupFeatures?.length || !destinationFeatures?.length) {
         alert('Не удалось найти один из адресов');
         return;
       }
 
-      const pickupCoords = pickupData.features[0].geometry.coordinates;
-      const destinationCoords = destinationData.features[0].geometry.coordinates;
+      const pickupPos = pickupFeatures[0].GeoObject.Point.pos.split(' ').map(Number).reverse();
+      const destinationPos = destinationFeatures[0].GeoObject.Point.pos.split(' ').map(Number).reverse();
 
-      // Рассчитываем маршрут
-      const routeResponse = await fetch(
-        `https://api.openrouteservice.org/v2/directions/driving-car?api_key=${API_KEY}`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            coordinates: [pickupCoords, destinationCoords]
-          })
-        }
-      );
-
-      const routeData = await routeResponse.json();
+      // Рассчитываем расстояние по прямой (приблизительно)
+      const R = 6371; // радиус Земли в км
+      const dLat = (destinationPos[0] - pickupPos[0]) * Math.PI / 180;
+      const dLon = (destinationPos[1] - pickupPos[1]) * Math.PI / 180;
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(pickupPos[0] * Math.PI / 180) * Math.cos(destinationPos[0] * Math.PI / 180) *
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      const distance = R * c;
       
-      if (routeData.routes && routeData.routes.length > 0) {
-        const route = routeData.routes[0];
-        const distanceKm = route.summary.distance / 1000;
-        const durationMin = route.summary.duration / 60;
-        const cost = Math.round(distanceKm * selectedCar.pricePerKm);
+      // Добавляем коэффициент для реального маршрута (+30%)
+      const realDistance = distance * 1.3;
+      const estimatedTime = Math.round(realDistance * 2.5); // примерно 2.5 мин на км в городе
+      const cost = Math.round(realDistance * selectedCar.pricePerKm);
 
-        // Получаем координаты маршрута для отображения на карте
-        const routeCoords: [number, number][] = route.geometry.coordinates.map((coord: number[]) => [coord[1], coord[0]]);
-
-        setRouteInfo({
-          distance: Math.round(distanceKm * 10) / 10,
-          duration: Math.round(durationMin),
-          cost,
-          pickupCoords: [pickupCoords[1], pickupCoords[0]],
-          destinationCoords: [destinationCoords[1], destinationCoords[0]],
-          routeCoords
-        });
-      }
+      setRouteInfo({
+        distance: Math.round(realDistance * 10) / 10,
+        duration: estimatedTime,
+        cost,
+        pickupCoords: [pickupPos[0], pickupPos[1]],
+        destinationCoords: [destinationPos[0], destinationPos[1]]
+      });
     } catch (error) {
       console.error('Ошибка при расчете маршрута:', error);
       alert('Ошибка при расчете маршрута. Попробуйте еще раз.');
@@ -356,10 +348,9 @@ const Index = () => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-6">
-                    <TaxiMap
+                    <YandexMap
                       pickupCoords={routeInfo?.pickupCoords}
                       destinationCoords={routeInfo?.destinationCoords}
-                      routeCoords={routeInfo?.routeCoords}
                       pickupAddress={pickupAddress}
                       destinationAddress={destinationAddress}
                     />

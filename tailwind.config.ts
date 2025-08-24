@@ -19,6 +19,10 @@ export default {
 		},
 		extend: {
 			colors: {
+				taxi: {
+					DEFAULT: '#FFD700',
+					foreground: '#000000'
+				},
 				border: 'hsl(var(--border))',
 				input: 'hsl(var(--input))',
 				ring: 'hsl(var(--ring))',
@@ -67,6 +71,9 @@ export default {
 				lg: 'var(--radius)',
 				md: 'calc(var(--radius) - 2px)',
 				sm: 'calc(var(--radius) - 4px)'
+			},
+			fontFamily: {
+				roboto: ['Roboto', 'sans-serif']
 			},
 			keyframes: {
 				'accordion-down': {

@@ -381,7 +381,6 @@ const Index = () => {
                         </div>
                       )}
                     </Button>
-                    </div>
                   </CardContent>
                 </Card>
 

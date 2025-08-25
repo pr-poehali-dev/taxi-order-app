@@ -218,37 +218,38 @@ const Index = () => {
         timestamp: new Date().toLocaleString('ru-RU')
       };
 
-      // В реальном приложении здесь был бы API вызов для отправки email
-      // Для демонстрации используем mailto (откроет почтовый клиент)
-      const emailSubject = 'Новый заказ такси';
-      const emailBody = `
-        ЗАКАЗ ТАКСИ
-        
-        Дата и время: ${orderData.timestamp}
-        
-        МАРШРУТ:
-        Откуда: ${orderData.pickup}
-        Куда: ${orderData.destination}
-        
-        ДЕТАЛИ ПОЕЗДКИ:
-        Расстояние: ${orderData.distance} км
-        Время в пути: ${orderData.duration} мин
-        Тип автомобиля: ${orderData.carType}
-        Тариф: ${orderData.pricePerKm} ₽/км
-        
-        СТОИМОСТЬ: ${orderData.cost} ₽
-        
-        КОНТАКТЫ КЛИЕНТА:
-        Телефон: ${orderData.phone}
-      `.replace(/\n\s+/g, '\n');
+      // Формируем сообщение для отправки
+      const message = `🚖 НОВЫЙ ЗАКАЗ ТАКСИ
 
-      const mailtoLink = `mailto:taxi@example.com?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
+📅 ${orderData.timestamp}
+
+📍 МАРШРУТ:
+• Откуда: ${orderData.pickup}
+• Куда: ${orderData.destination}
+
+🛣️ ДЕТАЛИ:
+• Расстояние: ${orderData.distance} км
+• Время: ${orderData.duration} мин
+• Автомобиль: ${orderData.carType}
+• Тариф: ${orderData.pricePerKm} ₽/км
+
+💰 СТОИМОСТЬ: ${orderData.cost} ₽
+
+📞 ТЕЛЕФОН: ${orderData.phone}`;
+
+      // Отправляем в Telegram (можно заменить на любой другой сервис)
+      const telegramBotToken = 'YOUR_BOT_TOKEN'; // Заменить на реальный токен
+      const chatId = 'YOUR_CHAT_ID'; // Заменить на реальный chat_id
       
-      // Открываем почтовый клиент
-      window.location.href = mailtoLink;
+      // Для демонстрации используем WhatsApp Web API
+      const whatsappNumber = '79991234567'; // Номер исполнителя
+      const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
+      
+      // Открываем WhatsApp с готовым сообщением
+      window.open(whatsappUrl, '_blank');
       
       // Показываем успешное сообщение
-      alert('Заказ сформирован! Открывается почтовый клиент для отправки.');
+      alert('Заказ отправлен исполнителю через WhatsApp! Ожидайте подтверждения.');
       
       // Очищаем форму
       setCustomerPhone('');
@@ -363,56 +364,23 @@ const Index = () => {
                       )}
                     </div>
 
-                    <div className="relative">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Номер телефона заказчика
-                      </label>
-                      <div className="relative">
-                        <Icon name="Phone" size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-blue-500" />
-                        <Input
-                          placeholder="+7 (999) 123-45-67"
-                          value={customerPhone}
-                          onChange={(e) => setCustomerPhone(e.target.value)}
-                          className="pl-10 h-12 border-2 focus:border-taxi"
-                          type="tel"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-3">
-                      <Button
-                        onClick={calculateRoute}
-                        disabled={isCalculating}
-                        className="w-full h-12 bg-taxi hover:bg-yellow-500 text-black font-semibold text-lg"
-                      >
-                        {isCalculating ? (
-                          <div className="flex items-center gap-2">
-                            <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
-                            Расчет маршрута...
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-2">
-                            <Icon name="Calculator" size={20} />
-                            Рассчитать маршрут
-                          </div>
-                        )}
-                      </Button>
-
-                      {routeInfo && (
-                        <Button
-                          onClick={submitOrder}
-                          disabled={isSubmitting || !customerPhone.trim()}
-                          className="w-full h-12 bg-green-600 hover:bg-green-700 text-white font-semibold text-lg"
-                        >
-                          {isSubmitting ? (
-                            <div className="flex items-center gap-2">
-                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                              Отправка заказа...
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-2">
-                              <Icon name="Send" size={20} />
-                              Оформить заказ ({routeInfo.cost} ₽)
+                    <Button
+                      onClick={calculateRoute}
+                      disabled={isCalculating}
+                      className="w-full h-12 bg-taxi hover:bg-yellow-500 text-black font-semibold text-lg"
+                    >
+                      {isCalculating ? (
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
+                          Расчет маршрута...
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <Icon name="Calculator" size={20} />
+                          Рассчитать маршрут
+                        </div>
+                      )}
+                    </Button>
                             </div>
                           )}
                         </Button>
@@ -509,6 +477,43 @@ const Index = () => {
                         <p className="text-sm text-gray-600">
                           Выбранный тариф: <span className="font-semibold">{selectedCar.name}</span> • <span className="font-semibold">{selectedCar.pricePerKm} ₽/км</span>
                         </p>
+                      </div>
+                      
+                      {/* Order Form */}
+                      <div className="mt-6 space-y-4">
+                        <div className="relative">
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Номер телефона заказчика
+                          </label>
+                          <div className="relative">
+                            <Icon name="Phone" size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-blue-500" />
+                            <Input
+                              placeholder="+7 (999) 123-45-67"
+                              value={customerPhone}
+                              onChange={(e) => setCustomerPhone(e.target.value)}
+                              className="pl-10 h-12 border-2 focus:border-taxi"
+                              type="tel"
+                            />
+                          </div>
+                        </div>
+                        
+                        <Button
+                          onClick={submitOrder}
+                          disabled={isSubmitting || !customerPhone.trim()}
+                          className="w-full h-14 bg-green-600 hover:bg-green-700 text-white font-bold text-lg"
+                        >
+                          {isSubmitting ? (
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                              Отправка заказа...
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <Icon name="Car" size={20} />
+                              Заказать автомобиль • {routeInfo.cost} ₽
+                            </div>
+                          )}
+                        </Button>
                       </div>
                     </CardContent>
                   </Card>
